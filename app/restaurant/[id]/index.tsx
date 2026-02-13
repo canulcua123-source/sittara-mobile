@@ -58,6 +58,51 @@ const MenuHighlights = ({ restaurantId }: { restaurantId: string }) => {
     );
 };
 
+const getTodayHours = (restaurant: any) => {
+    if (!restaurant) return { text: '-', isOpen: false };
+
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const now = new Date();
+    const dayName = days[now.getDay()];
+
+    // 1. Try JSONB opening_hours
+    if (restaurant.opening_hours && restaurant.opening_hours[dayName]) {
+        const hours = restaurant.opening_hours[dayName];
+        if (hours.closed) return { text: 'Cerrado hoy', isOpen: false };
+        return {
+            text: `${hours.open} - ${hours.close}`,
+            isOpen: checkIfOpen(hours.open, hours.close)
+        };
+    }
+
+    // 2. Fallback to simple columns (fixing the bug: snake_case support)
+    const openTime = restaurant.open_time || restaurant.openTime;
+    const closeTime = restaurant.close_time || restaurant.closeTime;
+
+    if (openTime && closeTime) {
+        // Format time strings (remove seconds if present)
+        const format = (t: string) => t.substring(0, 5);
+        return {
+            text: `${format(openTime)} - ${format(closeTime)}`,
+            isOpen: checkIfOpen(openTime, closeTime)
+        };
+    }
+
+    return { text: 'Consultar Horario', isOpen: false };
+};
+
+const checkIfOpen = (open: string, close: string) => {
+    if (!open || !close) return false;
+    const now = new Date();
+    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    // Handle overnight hours (e.g. 19:00 - 02:00)
+    if (close < open) {
+        return currentTime >= open || currentTime <= close;
+    }
+    return currentTime >= open && currentTime <= close;
+};
+
 export default function RestaurantDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
@@ -69,10 +114,13 @@ export default function RestaurantDetailScreen() {
     const reviews = reviewsData?.data || [];
     const stats = statsData?.data;
 
+    // Derived state for UI
+    const todayHours = React.useMemo(() => getTodayHours(restaurant), [restaurant]);
+
     if (isLoading) {
         return (
             <View className="flex-1 items-center justify-center bg-white">
-                <ActivityIndicator size="large" color="#1f7a66" />
+                <ActivityIndicator size="large" color="#ea580c" />
             </View>
         );
     }
@@ -83,7 +131,7 @@ export default function RestaurantDetailScreen() {
                 <Text className="text-xl font-bold text-slate-900 mb-2">Restaurante no encontrado</Text>
                 <TouchableOpacity
                     onPress={() => router.back()}
-                    className="bg-orange-600 px-6 py-3 rounded-xl"
+                    className="bg-orange-600 px-6 py-3 rounded-full shadow-lg shadow-orange-200"
                 >
                     <Text className="text-white font-bold">Volver al inicio</Text>
                 </TouchableOpacity>
@@ -94,7 +142,7 @@ export default function RestaurantDetailScreen() {
     const handleShare = async () => {
         try {
             await Share.share({
-                message: `¡Mira este restaurante en Sittara!: ${restaurant.name}`,
+                message: `¡Vamos a comer a ${restaurant.name}! Lo encontré en Sittara.`,
                 url: `https://sittara.app/restaurante/${restaurant.id}`,
             });
         } catch (error) {
@@ -103,253 +151,179 @@ export default function RestaurantDetailScreen() {
     };
 
     return (
-        <View className="flex-1 bg-white">
+        <View className="flex-1 bg-slate-50">
             <StatusBar barStyle="light-content" />
 
-            {/* Header Image */}
-            <View className="h-80 relative">
-                <Image
-                    source={{ uri: restaurant.image }}
-                    className="w-full h-full"
-                    resizeMode="cover"
-                />
-                <View className="absolute inset-0 bg-black/30" />
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                {/* Hero Section */}
+                <View className="h-96 relative">
+                    <Image
+                        source={{ uri: restaurant.image || restaurant.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800' }}
+                        className="w-full h-full"
+                        resizeMode="cover"
+                    />
+                    {/* Gradient Overlay */}
+                    <View className="absolute inset-0 bg-black/40" />
 
-                {/* Top Buttons */}
-                <SafeAreaView className="absolute top-0 left-0 right-0">
-                    <View className="flex-row justify-between px-6 pt-2">
-                        <TouchableOpacity
-                            onPress={() => router.back()}
-                            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center border border-white/20"
-                        >
-                            <ArrowLeft size={20} color="white" />
-                        </TouchableOpacity>
-
-                        <View className="flex-row gap-2">
+                    {/* Header Controls */}
+                    <SafeAreaView className="absolute top-0 left-0 right-0 z-10">
+                        <View className="flex-row justify-between px-6 pt-2">
                             <TouchableOpacity
-                                onPress={handleShare}
-                                className="w-10 h-10 rounded-full bg-white/20 items-center justify-center border border-white/20"
+                                onPress={() => router.back()}
+                                className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md items-center justify-center"
                             >
-                                <Share2 size={20} color="white" />
+                                <ArrowLeft size={20} color="white" />
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                className="w-10 h-10 rounded-full bg-white/20 items-center justify-center border border-white/20"
-                            >
-                                <Heart size={20} color="white" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </SafeAreaView>
 
-                {/* Floating Info Card */}
-                <View className="absolute -bottom-10 left-6 right-6 bg-white rounded-3xl p-6 shadow-xl shadow-black/10">
-                    <View className="flex-row justify-between items-start mb-2">
-                        <View className="flex-1">
-                            <Text className="text-2xl font-bold text-slate-900">{restaurant.name}</Text>
-                            <View className="flex-row items-center mt-1">
-                                <MapPin size={14} color="#64748b" />
-                                <Text className="text-slate-500 text-sm ml-1">{restaurant.zone} • {restaurant.cuisine}</Text>
+                            <View className="flex-row gap-3">
+                                <TouchableOpacity
+                                    onPress={handleShare}
+                                    className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md items-center justify-center"
+                                >
+                                    <Share2 size={20} color="white" />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md items-center justify-center"
+                                >
+                                    <Heart size={20} color="white" />
+                                </TouchableOpacity>
                             </View>
                         </View>
-                        <View className="bg-yellow-50 px-3 py-1.5 rounded-xl flex-row items-center">
-                            <Star size={16} color="#eab308" fill="#eab308" />
-                            <Text className="text-yellow-700 font-bold ml-1 text-base">{(restaurant.rating || 0).toFixed(1)}</Text>
+                    </SafeAreaView>
+
+                    {/* Main Info Overlay */}
+                    <View className="absolute bottom-0 left-0 right-0 p-6 pt-12 bg-black/40">
+                        {/* <View className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" /> */}
+                        <View className="flex-row justify-between items-end mb-1">
+                            <View className="flex-1 mr-4">
+                                <Text className="text-3xl font-extrabold text-white shadow-sm mb-2">{restaurant.name}</Text>
+                                <View className="flex-row items-center flex-wrap gap-2">
+                                    <View className="flex-row items-center bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                                        <MapPin size={12} color="white" />
+                                        <Text className="text-white text-xs font-semibold ml-1">{restaurant.zone || 'Mérida'}</Text>
+                                    </View>
+                                    <View className="flex-row items-center bg-white/20 px-2 py-1 rounded-lg backdrop-blur-sm">
+                                        <Utensils size={12} color="white" />
+                                        <Text className="text-white text-xs font-semibold ml-1">{restaurant.cuisine || 'Variada'}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                            <View className="bg-yellow-400 px-3 py-2 rounded-2xl items-center shadow-lg">
+                                <View className="flex-row items-center">
+                                    <Star size={16} color="black" fill="black" />
+                                    <Text className="text-black font-extrabold ml-1 text-lg">{(restaurant.rating || 0).toFixed(1)}</Text>
+                                </View>
+                                <Text className="text-black/80 text-[9px] font-bold mt-0.5">{reviews?.length || 0} reviews</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
-            </View>
 
-            <ScrollView className="flex-1 mt-14" showsVerticalScrollIndicator={false}>
-                <View className="px-6 pb-32">
-                    {/* Quick Stats */}
-                    <View className="flex-row justify-between bg-slate-50 rounded-2xl p-4 mb-8">
-                        <View className="items-center flex-1 border-r border-slate-200">
-                            <Clock size={20} color="#1f7a66" />
-                            <Text className="text-slate-400 text-[10px] mt-1 uppercase font-bold tracking-widest">Abierto</Text>
-                            <Text className="text-slate-900 font-bold text-[12px]">{restaurant.openTime} - {restaurant.closeTime}</Text>
+                {/* Content Container */}
+                <View className="px-6 -mt-6">
+                    {/* Status Card */}
+                    <View className="bg-white rounded-3xl p-5 shadow-sm shadow-slate-200 border border-slate-100 flex-row justify-between items-center mb-6">
+                        <View className="flex-1 pr-4 border-r border-slate-100">
+                            <View className="flex-row items-center mb-1">
+                                <Clock size={16} color={todayHours.isOpen ? '#16a34a' : '#ef4444'} />
+                                <Text className={`text-xs font-bold uppercase ml-2 ${todayHours.isOpen ? 'text-green-600' : 'text-red-500'}`}>
+                                    {todayHours.isOpen ? 'Abierto' : 'Cerrado'}
+                                </Text>
+                            </View>
+                            <Text className="text-slate-900 font-bold text-sm ml-6">{todayHours.text}</Text>
                         </View>
-                        <View className="items-center flex-1 border-r border-slate-200">
-                            <Text className="text-orange-600 font-bold text-lg">{restaurant.priceRange}</Text>
-                            <Text className="text-slate-400 text-[10px] mt-1 uppercase font-bold tracking-widest">Precio</Text>
-                        </View>
-                        <View className="items-center flex-1">
-                            <Info size={20} color="#1f7a66" />
-                            <Text className="text-slate-400 text-[10px] mt-1 uppercase font-bold tracking-widest">Info</Text>
-                            <Text className="text-slate-900 font-bold text-[12px]">Ver más</Text>
+                        <View className="pl-4 items-center justify-center">
+                            <Text className="text-slate-400 text-[10px] font-bold uppercase mb-1">Precio Promedio</Text>
+                            <Text className="text-slate-900 font-extrabold text-lg">{restaurant.priceRange || restaurant.price_range || '$$'}</Text>
                         </View>
                     </View>
 
                     {/* Description */}
                     <View className="mb-8">
-                        <Text className="text-lg font-bold text-slate-900 mb-2">Acerca de</Text>
-                        <Text className="text-slate-500 leading-6">
-                            {restaurant.description || 'Este restaurante aún no tiene una descripción detallada, pero estamos seguros de que te encantará su propuesta gastronómica única en el corazón de Mérida.'}
+                        <Text className="text-xl font-bold text-slate-900 mb-3">Acerca de</Text>
+                        <Text className="text-slate-500 leading-7 text-base">
+                            {restaurant.description || 'Disfruta de una experiencia gastronómica inigualable. Este restaurante destaca por su atención al detalle y sabores auténticos.'}
                         </Text>
                     </View>
 
-                    {/* Menu Highlights Section */}
+                    {/* Menu Section */}
                     <MenuHighlights restaurantId={restaurant.id} />
 
-                    {/* Action: Book Now! */}
-                    <View className="bg-slate-900 rounded-3xl p-6 mb-8 relative overflow-hidden">
-                        <View className="relative z-10">
-                            <Text className="text-white text-xl font-bold mb-2">¿Listo para comer?</Text>
-                            <Text className="text-white/70 mb-6">Reserva tu mesa ahora y asegura tu lugar favorito.</Text>
-                            <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() => router.push(`/restaurant/${restaurant.id}/reserve`)}
-                                className="bg-orange-600 h-14 rounded-2xl items-center justify-center flex-row"
-                            >
-                                <Calendar size={20} color="white" />
-                                <Text className="text-white text-lg font-bold ml-2">Reservar Mesa</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <View className="absolute -right-10 -bottom-10 opacity-20">
-                            <Utensils size={150} color="white" />
-                        </View>
-                    </View>
-
-                    {/* Location */}
-                    <View className="mb-8">
+                    {/* Reviews */}
+                    <View className="mb-6">
                         <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-lg font-bold text-slate-900">Ubicación</Text>
-                            <TouchableOpacity>
-                                <Text className="text-orange-600 font-semibold">Ver mapa</Text>
+                            <Text className="text-xl font-bold text-slate-900">Lo que dicen</Text>
+                            <TouchableOpacity onPress={() => {/* Navigate to all reviews */ }}>
+                                <Text className="text-orange-600 font-semibold">Ver todas</Text>
                             </TouchableOpacity>
                         </View>
-                        <View className="flex-row items-center bg-slate-50 p-4 rounded-2xl">
-                            <View className="w-10 h-10 bg-white rounded-xl items-center justify-center shadow-sm">
-                                <MapPin size={20} color="#1f7a66" />
-                            </View>
-                            <Text className="flex-1 ml-4 text-slate-600 text-sm leading-5">
-                                {restaurant.address || 'Calle 60 #123, Centro Histórico, Mérida, Yucatán.'}
-                            </Text>
-                        </View>
-                    </View>
 
-                    {/* Reviews Section */}
-                    <View className="mb-8" id="reviews-section">
-                        <View className="flex-row justify-between items-center mb-6">
-                            <View>
-                                <Text className="text-xl font-bold text-slate-900">Reseñas</Text>
-                                <Text className="text-slate-500 text-sm">{stats?.count || 0} opiniones de la comunidad</Text>
-                            </View>
-                            <View className="items-end">
-                                <View className="flex-row items-center">
-                                    <Star size={20} color="#eab308" fill="#eab308" />
-                                    <Text className="text-2xl font-bold text-slate-900 ml-1">
-                                        {(stats?.averageRating || restaurant.rating || 0).toFixed(1)}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Breakdown Stats */}
-                        {stats && stats.count > 0 && (
-                            <View className="bg-slate-50 rounded-3xl p-6 mb-8">
-                                <Text className="text-slate-900 font-bold mb-4 text-sm uppercase tracking-wider">Desglose de satisfacción</Text>
-                                <View className="flex-row flex-wrap justify-between gap-y-4">
-                                    {[
-                                        { label: 'Comida', value: stats.averageFoodRating },
-                                        { label: 'Servicio', value: stats.averageServiceRating },
-                                        { label: 'Ambiente', value: stats.averageAmbianceRating },
-                                        { label: 'Calidad/Precio', value: stats.averageValueRating },
-                                    ].map((item, index) => (
-                                        <View key={index} className="w-[48%] bg-white p-3 rounded-2xl shadow-sm shadow-slate-200">
-                                            <Text className="text-slate-400 text-[10px] font-bold uppercase mb-1">{item.label}</Text>
-                                            <View className="flex-row items-center justify-between">
-                                                <Text className="text-slate-900 font-bold">{item.value?.toFixed(1) || '0.0'}</Text>
-                                                <View className="flex-row gap-0.5">
+                        {reviews.length > 0 ? (
+                            reviews.slice(0, 3).map((review: any) => (
+                                <View key={review.id} className="mb-4 bg-white p-4 rounded-2xl border border-slate-100/50 shadow-sm shadow-slate-100">
+                                    <View className="flex-row items-start justify-between mb-2">
+                                        <View className="flex-row items-center">
+                                            <View className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center border border-slate-200">
+                                                <Text className="text-slate-600 font-bold">
+                                                    {(review.user?.name || review.customerName || 'A').charAt(0)}
+                                                </Text>
+                                            </View>
+                                            <View className="ml-3">
+                                                <Text className="font-bold text-slate-900 text-sm">
+                                                    {review.user?.name || review.customerName || 'Anónimo'}
+                                                </Text>
+                                                <View className="flex-row">
                                                     {[1, 2, 3, 4, 5].map(s => (
-                                                        <View
-                                                            key={s}
-                                                            className={`w-1.5 h-1.5 rounded-full ${s <= Math.round(item.value || 0) ? 'bg-yellow-500' : 'bg-slate-200'}`}
-                                                        />
+                                                        <Star key={s} size={10} color="#fbbf24" fill={s <= (review.rating || 0) ? '#fbbf24' : '#e2e8f0'} />
                                                     ))}
                                                 </View>
                                             </View>
                                         </View>
-                                    ))}
-                                </View>
-                            </View>
-                        )}
-
-                        {reviews.length > 0 ? (
-                            reviews.map((review: any) => (
-                                <View key={review.id} className="mb-6 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm shadow-slate-100">
-                                    <View className="flex-row justify-between items-start mb-4">
-                                        <View className="flex-row items-center">
-                                            <View className="w-12 h-12 bg-orange-100 rounded-2xl items-center justify-center">
-                                                <Text className="text-orange-700 font-bold text-lg">
-                                                    {(review.user?.name || review.customerName || 'U').charAt(0).toUpperCase()}
-                                                </Text>
-                                            </View>
-                                            <View className="ml-3">
-                                                <Text className="font-bold text-slate-800 text-base">
-                                                    {review.user?.name || review.customerName || 'Usuario'}
-                                                </Text>
-                                                <View className="flex-row items-center">
-                                                    <View className="flex-row mr-2">
-                                                        {[1, 2, 3, 4, 5].map(s => (
-                                                            <Star
-                                                                key={s}
-                                                                size={10}
-                                                                color="#eab308"
-                                                                fill={s <= (review.rating || 0) ? '#eab308' : 'transparent'}
-                                                            />
-                                                        ))}
-                                                    </View>
-                                                    <Text className="text-slate-400 text-[10px]">
-                                                        {new Date(review.created_at || review.createdAt).toLocaleDateString('es-MX')}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                        </View>
-                                        {review.is_verified && (
-                                            <View className="bg-green-50 px-2 py-1 rounded-lg">
-                                                <Text className="text-green-600 text-[9px] font-bold uppercase">Verificada</Text>
-                                            </View>
-                                        )}
+                                        <Text className="text-slate-300 text-xs">
+                                            {new Date(review.created_at || review.createdAt).toLocaleDateString()}
+                                        </Text>
                                     </View>
-
-                                    <Text className="text-slate-600 leading-5 mb-4 italic">"{review.comment}"</Text>
-
-                                    <View className="flex-row justify-between items-center pt-4 border-t border-slate-50">
-                                        <TouchableOpacity
-                                            onPress={() => reviewService.markHelpful(review.id)}
-                                            className="flex-row items-center bg-slate-50 px-3 py-2 rounded-xl"
-                                        >
-                                            <Heart size={14} color="#ef4444" />
-                                            <Text className="text-slate-600 text-xs font-semibold ml-2">Útil ({review.helpful_count || 0})</Text>
-                                        </TouchableOpacity>
-
-                                        <View className="flex-row gap-2">
-                                            {review.food_rating && (
-                                                <View className="w-6 h-6 rounded-full bg-slate-50 items-center justify-center border border-slate-100">
-                                                    <Utensils size={10} color="#1f7a66" />
-                                                </View>
-                                            )}
-                                            {review.service_rating && (
-                                                <View className="w-6 h-6 rounded-full bg-slate-50 items-center justify-center border border-slate-100">
-                                                    <Clock size={10} color="#1f7a66" />
-                                                </View>
-                                            )}
-                                        </View>
-                                    </View>
+                                    <Text className="text-slate-600 text-sm italic border-l-2 border-orange-100 pl-3 py-1">
+                                        "{review.comment}"
+                                    </Text>
                                 </View>
                             ))
                         ) : (
-                            <View className="bg-slate-50 p-10 rounded-3xl items-center justify-center border border-dashed border-slate-200">
-                                <Utensils size={40} color="#cbd5e1" />
-                                <Text className="text-slate-400 text-center mt-4">Aún no hay reseñas para este lugar. ¡Sé el primero en calificar tu visita!</Text>
+                            <View className="bg-white p-6 rounded-2xl border border-dashed border-slate-200 items-center">
+                                <Text className="text-slate-400 text-center">Sé el primero en opinar sobre este lugar.</Text>
                             </View>
                         )}
+                    </View>
+
+                    {/* Location Simple */}
+                    <View className="mb-24">
+                        <Text className="text-xl font-bold text-slate-900 mb-3">Ubicación</Text>
+                        <View className="bg-white p-4 rounded-2xl border border-slate-100 flex-row items-center">
+                            <View className="w-10 h-10 bg-orange-50 rounded-full items-center justify-center mr-4">
+                                <MapPin size={20} color="#ea580c" />
+                            </View>
+                            <View className="flex-1">
+                                <Text className="text-slate-900 font-medium">{restaurant.address || 'Ubicación no disponible'}</Text>
+                            </View>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
 
-            {/* Floating Action Button for Reservation */}
-            {/* Opcional según el diseño */}
+            {/* Floating Reserve Button */}
+            <View className="absolute bottom-0 left-0 right-0 p-6 bg-white/95 border-t border-slate-100 backdrop-blur-lg">
+                <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                        /* Haptic feedback if available */
+                        router.push(`/restaurant/${restaurant.id}/reserve`);
+                    }}
+                    className="bg-slate-900 h-14 rounded-2xl items-center justify-center flex-row shadow-xl shadow-slate-900/20"
+                >
+                    <Calendar size={20} color="white" />
+                    <Text className="text-white text-lg font-bold ml-2">Reservar Mesa</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 }

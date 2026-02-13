@@ -24,14 +24,24 @@ export default function HomeScreen() {
   const { data: featured } = useFeaturedRestaurants();
   const { data: unreadResponse } = useUnreadNotifications();
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Todos');
 
   const unreadCount = unreadResponse?.data?.unreadCount || 0;
 
-  const filteredRestaurants = restaurants?.filter(r =>
-    r.name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
-    r.zone?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredRestaurants = restaurants?.filter(r => {
+    const matchesSearch =
+      r.name?.toLowerCase().includes(search.toLowerCase()) ||
+      r.cuisine?.toLowerCase().includes(search.toLowerCase()) ||
+      r.zone?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesCategory = selectedCategory === 'Todos' ||
+      r.cuisine?.toLowerCase() === selectedCategory.toLowerCase() ||
+      (selectedCategory === 'Otros' && !['yucateca', 'mariscos', 'cortes', 'italiana'].includes(r.cuisine?.toLowerCase() || ''));
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const categories = ['Todos', 'Yucateca', 'Mariscos', 'Cortes', 'Italiana'];
 
   const renderHeader = () => (
     <View className="px-6 pt-4 pb-6">
@@ -43,11 +53,11 @@ export default function HomeScreen() {
         </View>
         <TouchableOpacity
           onPress={() => router.push('/notifications')}
-          className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center relative"
+          className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center relative shadow-sm"
         >
           <Bell size={20} color="#64748b" />
           {unreadCount > 0 && (
-            <View className="absolute -top-1 -right-1 bg-orange-600 w-5 h-5 rounded-full items-center justify-center border-2 border-white">
+            <View className="absolute -top-1 -right-1 bg-red-500 w-5 h-5 rounded-full items-center justify-center border-2 border-white">
               <Text className="text-white text-[10px] font-bold">{unreadCount > 9 ? '9+' : unreadCount}</Text>
             </View>
           )}
@@ -56,16 +66,17 @@ export default function HomeScreen() {
 
       {/* Search Bar */}
       <View className="flex-row gap-3 mb-8">
-        <View className="flex-1 flex-row items-center bg-slate-100 px-4 py-3 rounded-2xl">
+        <View className="flex-1 flex-row items-center bg-white border border-slate-200 px-4 py-3 rounded-2xl shadow-sm">
           <Search size={20} color="#94a3b8" />
           <TextInput
             placeholder="Buscar restaurante, comida..."
-            className="flex-1 ml-2 text-slate-900"
+            className="flex-1 ml-2 text-slate-900 font-medium"
+            placeholderTextColor="#94a3b8"
             value={search}
             onChangeText={setSearch}
           />
         </View>
-        <TouchableOpacity className="bg-orange-600 w-12 h-12 rounded-2xl items-center justify-center">
+        <TouchableOpacity className="bg-slate-900 w-12 h-12 rounded-2xl items-center justify-center shadow-lg shadow-slate-900/20">
           <SlidersHorizontal size={20} color="white" />
         </TouchableOpacity>
       </View>
@@ -74,30 +85,34 @@ export default function HomeScreen() {
       <View className="mb-8">
         <Text className="text-lg font-bold text-slate-900 mb-4">Categorías</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-          {['Todos', 'Yucateca', 'Mariscos', 'Cortes', 'Italiana'].map((cat, i) => (
-            <TouchableOpacity
-              key={cat}
-              className={`px-6 py-2 rounded-full mr-3 border ${i === 0 ? 'bg-orange-600 border-orange-600' : 'bg-white border-slate-200'}`}
-            >
-              <Text className={`font-semibold ${i === 0 ? 'text-white' : 'text-slate-600'}`}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((cat, i) => {
+            const isActive = selectedCategory === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                className={`px-5 py-2.5 rounded-2xl mr-3 border ${isActive ? 'bg-orange-600 border-orange-600 shadow-md shadow-orange-200' : 'bg-white border-slate-200'}`}
+              >
+                <Text className={`font-bold text-sm ${isActive ? 'text-white' : 'text-slate-600'}`}>{cat}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* Featured Section */}
-      {featured && featured.length > 0 && (
-        <View className="mb-4">
+      {/* Featured Section (Only when not filtering) */}
+      {(search === '' && selectedCategory === 'Todos' && featured && featured.length > 0) && (
+        <View className="mb-8">
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-lg font-bold text-slate-900">Destacados</Text>
             <TouchableOpacity>
-              <Text className="text-orange-600 font-semibold">Ver todos</Text>
+              <Text className="text-orange-600 font-semibold text-sm">Ver todos</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-6 px-6">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-6 px-6 pb-4">
             {featured.map(r => (
-              <View key={r.id} className="w-72 mr-4">
-                <RestaurantCard restaurant={r} />
+              <View key={r.id} className="w-80 mr-5">
+                <RestaurantCard restaurant={r} featured />
               </View>
             ))}
           </ScrollView>
@@ -145,7 +160,7 @@ export default function HomeScreen() {
             <RestaurantCard restaurant={item} />
           </View>
         )}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={renderHeader()}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#1f7a66" />
         }

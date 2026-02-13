@@ -18,7 +18,7 @@ const queryClient = new QueryClient();
 
 // Stripe Publishable Key (from environment or default to test key)
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-  'pk_test_51QhvMuE8qd2edytJswMhNMuMkzM3TBNaVSQifJfaYe3QoybJGy5aQ6FV3Y7r9C8ySf9LR0b0J1g0rB8LSAv7vNIE00zYzPuRRG';
+  'pk_live_51SrLH0CA2n7YNOvb3KFWaq7Kb2tVr3NVdNqdhOpsaULBVk1cFNcOPBcznC3ZjDlCJniA6RmpOKBsNbT6i6O0RI0T00wjFXOy3k';
 
 export {
   // Catch any errors thrown by the Layout component.

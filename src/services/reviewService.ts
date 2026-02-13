@@ -75,8 +75,21 @@ const reviewService = {
             const response = await api.post('/reviews', reviewData);
             return response.data;
         } catch (error: any) {
+            const backendError = error.response?.data?.error;
+            const normalizedError = backendError ? backendError.toString().toLowerCase() : '';
+
+            // Detectar caso de reseña duplicada (silencioso en logs)
+            if (normalizedError && (
+                normalizedError.includes('ya existe') ||
+                normalizedError.includes('ya has calificado') ||
+                normalizedError.includes('duplicate')
+            )) {
+                // No logueamos error en consola para no ensuciar
+                throw new Error('Ya has calificado esta visita');
+            }
+
             console.error('Error creating review:', error);
-            const message = error.response?.data?.error || 'Error al enviar la reseña';
+            const message = backendError || error.message || 'Error al enviar la reseña';
             throw new Error(message);
         }
     },

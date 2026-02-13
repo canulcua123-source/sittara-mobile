@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import api from '../services/api';
 import { User, ApiResponse } from '../types';
+import { registerForPushNotificationsAsync } from '../services/notificationService';
 
 interface AuthContextType {
     user: User | null;
@@ -11,6 +12,7 @@ interface AuthContextType {
     register: (name: string, email: string, password: string, phone: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => Promise<void>;
     updateUser: (updates: Partial<User>) => void;
+    deleteAccount: () => Promise<{ success: boolean; error?: string }>;
     refreshUser: () => Promise<void>;
 }
 
@@ -59,6 +61,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(loggedUser));
                 await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, token);
 
+                // Register for Push Notifications automatically
+                registerForPushNotificationsAsync();
+
                 return { success: true };
             }
             return { success: false, error: response.data.error || 'Credenciales inválidas' };
@@ -88,6 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(newUser));
                 await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, token);
 
+                // Register for Push Notifications automatically
+                registerForPushNotificationsAsync();
+
                 return { success: true };
             }
             return { success: false, error: response.data.error || 'Error al crear la cuenta' };
@@ -104,6 +112,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         await SecureStore.deleteItemAsync(USER_STORAGE_KEY);
         await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
+    };
+
+    const deleteAccount = async (): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const response = await api.delete('/auth/me');
+            if (response.data.success) {
+                await logout(); // Limpiar sesión local
+                return { success: true };
+            }
+            return { success: false, error: response.data.error || 'No se pudo eliminar la cuenta' };
+        } catch (error: any) {
+            console.error('Delete account error:', error);
+            return { success: false, error: error.response?.data?.error || 'Error al eliminar cuenta' };
+        }
     };
 
     const updateUser = async (updates: Partial<User>) => {
@@ -142,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 register,
                 logout,
                 updateUser,
+                deleteAccount,
                 refreshUser,
             }}
         >

@@ -46,30 +46,39 @@ export default function RateScreen() {
             return;
         }
 
-        try {
-            await createReview.mutateAsync({
-                restaurantId: restaurantId,
-                reservationId: reservationId,
-                rating,
-                foodRating: foodRating > 0 ? foodRating : undefined,
-                serviceRating: serviceRating > 0 ? serviceRating : undefined,
-                ambianceRating: ambianceRating > 0 ? ambianceRating : undefined,
-                valueRating: valueRating > 0 ? valueRating : undefined,
-                comment
-            });
+        createReview.mutate({
+            restaurantId: restaurantId as string,
+            reservationId: reservationId as string,
+            rating,
+            foodRating: foodRating > 0 ? foodRating : undefined,
+            serviceRating: serviceRating > 0 ? serviceRating : undefined,
+            ambianceRating: ambianceRating > 0 ? ambianceRating : undefined,
+            valueRating: valueRating > 0 ? valueRating : undefined,
+            comment
+        }, {
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: ['my-reservations'] });
+                Alert.alert(
+                    '¡Gracias!',
+                    'Tu reseña ha sido enviada exitosamente.',
+                    [{ text: 'OK', onPress: () => router.back() }]
+                );
+            },
+            onError: (error: any) => {
+                const errorMessage = error.message || 'Error al enviar la reseña';
 
-            // Forzar actualización de la lista de reservas
-            queryClient.invalidateQueries({ queryKey: ['my-reservations'] });
-
-            Alert.alert(
-                '¡Gracias!',
-                'Tu reseña ha sido enviada exitosamente.',
-                [{ text: 'OK', onPress: () => router.back() }]
-            );
-        } catch (error: any) {
-            console.error('[RateScreen] Error submitting review:', error);
-            Alert.alert('Error', error?.message || 'No se pudo enviar la reseña');
-        }
+                // Si el error es porque ya calificó, tratarlo como informativo
+                if (errorMessage.includes('Ya has calificado') || errorMessage.includes('duplicate')) {
+                    Alert.alert(
+                        'Ya calificado',
+                        'Ya has enviado una reseña para esta visita anteriormente.',
+                        [{ text: 'Entendido', onPress: () => router.back() }]
+                    );
+                } else {
+                    Alert.alert('Error', errorMessage);
+                }
+            }
+        });
     };
 
     const CategoryRating = ({ label, value, onChange }: { label: string, value: number, onChange: (v: number) => void }) => (

@@ -64,7 +64,7 @@ export const useMyReservations = () => {
     return useQuery({
         queryKey: ['my-reservations'],
         queryFn: ReservationService.getMyReservations,
-        refetchInterval: 1000, // Refresco cada 1 segundo para debug en tiempo real
+        // refetchInterval: 1000, // Refresco cada 1 segundo para debug en tiempo real
     });
 };
 
@@ -157,6 +157,7 @@ export const useRepeatReservation = () => {
     });
 };
 
+// Notification Hooks
 // Notification Hooks
 import notificationService from '../services/notificationService';
 

@@ -1,87 +1,107 @@
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import api from './api';
-import { ApiResponse } from '../types';
 
-export interface Notification {
-    id: string;
-    user_id: string;
-    type: 'reservation_confirmed' | 'reservation_cancelled' | 'review_response' | 'promo' | 'system';
-    title: string;
-    message: string;
-    is_read: boolean;
-    data: any;
-    created_at: string;
+// Configurar comportamiento global de notificaciones (cómo se ven cuando la app está abierta)
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true, // Only for iOS to show banner
+        shouldShowList: true, // Only for iOS to show in list
+    } as Notifications.NotificationBehavior),
+});
+
+export async function registerForPushNotificationsAsync() {
+    let token;
+
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+        });
+    }
+
+    if (Device.isDevice) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            console.log('Permisos de notificación denegados');
+            return;
+        }
+
+        try {
+            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+
+            const pushTokenString = (await Notifications.getExpoPushTokenAsync({
+                projectId,
+            })).data;
+
+            console.log('Expo Push Token:', pushTokenString);
+            token = pushTokenString;
+
+            // Enviar token al backend si el usuario está logueado
+            // Esto se puede llamar también desde AuthContext después del login
+            await sendTokenToBackend(token);
+
+        } catch (e) {
+            console.error('Error obteniendo push token', e);
+        }
+    } else {
+        console.log('Debes usar un dispositivo físico para Push Notifications');
+    }
+
+    return token;
 }
 
-const notificationService = {
-    /**
-     * Get all notifications for current user
-     */
-    getNotifications: async (limit = 20, offset = 0): Promise<ApiResponse<Notification[]>> => {
-        try {
-            const response = await api.get('/notifications', {
-                params: { limit, offset }
-            });
-            return response.data;
-        } catch (error: any) {
-            console.error('Error fetching notifications:', error);
-            return {
-                success: false,
-                data: [],
-                error: error.response?.data?.error || 'Error al cargar las notificaciones'
-            };
-        }
-    },
-
-    /**
-     * Get unread notifications count
-     */
-    getUnreadCount: async (): Promise<ApiResponse<{ unreadCount: number }>> => {
-        try {
-            const response = await api.get('/notifications/unread');
-            return response.data;
-        } catch (error: any) {
-            console.error('Error fetching unread count:', error);
-            return {
-                success: false,
-                data: { unreadCount: 0 },
-                error: error.response?.data?.error || 'Error'
-            };
-        }
-    },
-
-    /**
-     * Mark notification as read
-     */
-    markAsRead: async (id: string): Promise<ApiResponse<Notification>> => {
-        try {
-            const response = await api.patch(`/notifications/${id}/read`);
-            return response.data;
-        } catch (error: any) {
-            console.error('Error marking notification as read:', error);
-            return {
-                success: false,
-                data: {} as Notification,
-                error: error.response?.data?.error || 'Error'
-            };
-        }
-    },
-
-    /**
-     * Mark all notifications as read
-     */
-    markAllAsRead: async (): Promise<ApiResponse<any>> => {
-        try {
-            const response = await api.patch('/notifications/read-all');
-            return response.data;
-        } catch (error: any) {
-            console.error('Error marking all as read:', error);
-            return {
-                success: false,
-                data: {},
-                error: error.response?.data?.error || 'Error'
-            };
-        }
+export async function sendTokenToBackend(token: string) {
+    try {
+        await api.post('/users/push-token', { pushToken: token });
+        console.log('Token enviado al backend exitosamente');
+    } catch (error) {
     }
+}
+
+// API Methods for Notifications
+const getNotifications = async () => {
+    return api.get('/notifications');
+};
+
+const getUnreadCount = async () => {
+    try {
+        const response = await api.get('/notifications/unread-count');
+        return response.data?.count || 0;
+    } catch (e) {
+        return 0;
+    }
+};
+
+const markAsRead = async (id: string) => {
+    return api.patch(`/notifications/${id}/read`, {});
+};
+
+const markAllAsRead = async () => {
+    return api.patch('/notifications/read-all', {});
+};
+
+const notificationService = {
+    registerForPushNotificationsAsync,
+    getNotifications,
+    getUnreadCount,
+    markAsRead,
+    markAllAsRead,
+    sendTokenToBackend
 };
 
 export default notificationService;

@@ -157,7 +157,7 @@ export default function AboutScreen() {
                             Hecho con amor en Mérida, Yucatán 🇲🇽
                         </Text>
                         <Text className="text-orange-600 text-sm mt-1">
-                            © 2024 Sittara. Todos los derechos reservados.
+                            © 2026Sittara. Todos los derechos reservados.
                         </Text>
                     </View>
                 </View>

@@ -29,11 +29,12 @@ import Toast from 'react-native-toast-message';
 import api from '../../src/services/api';
 
 export default function ProfileScreen() {
-    const { user, logout } = useAuth();
+    const { user, logout, deleteAccount } = useAuth();
     const router = useRouter();
     const [notifications, setNotifications] = useState(true);
     const [reservationsCount, setReservationsCount] = useState(0);
     const [points, setPoints] = useState(0);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Cargar estadísticas del usuario
     useEffect(() => {
@@ -73,6 +74,39 @@ export default function ProfileScreen() {
                     onPress: async () => {
                         await logout();
                         router.replace('/auth');
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleDeleteAccount = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+            "Eliminar Cuenta",
+            "Esta acción es permanente y no se puede deshacer. Perderás todos tus puntos, historial y favoritos. \n\n¿Estás seguro?",
+            [
+                { text: "Mantener mi cuenta", style: "cancel" },
+                {
+                    text: "Eliminar definitivamente",
+                    style: "destructive",
+                    onPress: async () => {
+                        setIsDeleting(true);
+                        const result = await deleteAccount();
+                        setIsDeleting(false);
+
+                        if (result.success) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Toast.show({
+                                type: 'success',
+                                text1: 'Cuenta eliminada',
+                                text2: 'Lamentamos verte partir'
+                            });
+                            router.replace('/auth');
+                        } else {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            Alert.alert('Error', result.error || 'No se pudo eliminar la cuenta');
+                        }
                     }
                 }
             ]
@@ -245,10 +279,18 @@ export default function ProfileScreen() {
                     {/* Logout */}
                     <TouchableOpacity
                         onPress={handleLogout}
-                        className="mt-8 flex-row items-center justify-center p-5 rounded-2xl border border-red-50"
+                        className="mt-8 flex-row items-center justify-center p-5 rounded-2xl border border-red-50 bg-red-50"
                     >
                         <LogOut size={20} color="#ef4444" />
                         <Text className="ml-2 text-red-500 font-bold text-lg">Cerrar Sesión</Text>
+                    </TouchableOpacity>
+
+                    {/* Delete Account (App Store Requirement) */}
+                    <TouchableOpacity
+                        onPress={handleDeleteAccount}
+                        className="mt-4 flex-row items-center justify-center p-4"
+                    >
+                        <Text className="text-slate-400 font-medium text-sm underline">Eliminar mi cuenta y datos</Text>
                     </TouchableOpacity>
 
                     <Text className="text-center text-slate-300 text-xs mt-10 mb-20 font-bold tracking-widest">SITTARA V1.0.0 (MOBILE)</Text>

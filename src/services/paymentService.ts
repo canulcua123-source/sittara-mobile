@@ -9,6 +9,7 @@ export interface PaymentIntentResponse {
 export interface ReservationData {
     restaurantId: string;
     tableId: string;
+    tableIds?: string[]; // Added for multiple tables
     date: string;
     time: string;
     guestCount: number;

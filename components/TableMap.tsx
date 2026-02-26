@@ -1,12 +1,12 @@
+import { Layout } from 'lucide-react-native';
 import React from 'react';
-import { View, Text, Dimensions, ActivityIndicator, ScrollView } from 'react-native';
-import Svg, { Rect, Circle, G, Text as SvgText } from 'react-native-svg';
-import { Users, Layout } from 'lucide-react-native';
+import { ActivityIndicator, Dimensions, ScrollView, Text, View } from 'react-native';
+import Svg, { Circle, G, Rect, Text as SvgText } from 'react-native-svg';
 import { Table } from '../src/types';
 
 interface TableMapProps {
     tables: Table[];
-    selectedTableId?: string;
+    selectedTableIds?: string[];
     onTableSelect: (table: Table) => void;
     isLoading?: boolean;
 }
@@ -15,7 +15,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAP_WIDTH = 800;
 const MAP_HEIGHT = 600;
 
-export const TableMap: React.FC<TableMapProps> = ({ tables, selectedTableId, onTableSelect, isLoading }) => {
+export const TableMap: React.FC<TableMapProps> = ({ tables, selectedTableIds = [], onTableSelect, isLoading }) => {
     // Zoom and Pan states removed for stability, using ScrollView instead
 
 
@@ -68,7 +68,7 @@ export const TableMap: React.FC<TableMapProps> = ({ tables, selectedTableId, onT
 
                                 {/* Tables */}
                                 {tables.map((table) => {
-                                    const isSelected = selectedTableId === table.id;
+                                    const isSelected = selectedTableIds.includes(table.id);
                                     const color = getStatusColor(table.status || 'available', isSelected);
                                     const opacity = getTableOpacity(table.status || 'available');
 

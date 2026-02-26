@@ -9,7 +9,8 @@ import {
     CreditCard,
     Gift,
     Heart,
-    PartyPopper
+    PartyPopper,
+    Users
 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
@@ -63,7 +64,7 @@ export default function ReservationFlow() {
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
     const [guestCount, setGuestCount] = useState(initialGuests ? parseInt(initialGuests) : 2);
-    const [selectedTable, setSelectedTable] = useState<any>(null);
+    const [selectedTables, setSelectedTables] = useState<any[]>([]);
     const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
     const [specialRequest, setSpecialRequest] = useState('');
     const [depositPaid, setDepositPaid] = useState(false);
@@ -97,17 +98,27 @@ export default function ReservationFlow() {
     // Encontrar el time slot seleccionado para ver si requiere depósito
     const selectedTimeSlot = useMemo(() => {
         if (!timeSlots || !selectedTime) return null;
+        if (selectedTables.length === 0) {
+            return null;
+        }
         // Backend now returns objects with { time, available, requiresDeposit, depositAmount }
         const slot = timeSlots.find((s: any) => {
             const time = typeof s === 'string' ? s : s.time;
             return time === selectedTime;
         });
-        return typeof slot === 'string' ? { time: slot, requiresDeposit: false, depositAmount: 0 } : slot;
+        return typeof slot === 'string' ? { time: slot, requiresDeposit: false, depositAmount: 0, isJoinedTable: false } : slot;
     }, [timeSlots, selectedTime]);
 
     // Deposit is determined per-slot by the backend (based on settings.depositRequired + depositHours + depositDays)
     const requiresDeposit = selectedTimeSlot?.requiresDeposit || false;
     const depositAmount = selectedTimeSlot?.depositAmount || restaurant?.settings?.depositAmount || 150;
+
+    const totalSelectedCapacity = useMemo(() => {
+        return selectedTables.reduce((sum, table) => sum + table.capacity, 0);
+    }, [selectedTables]);
+
+    const isCapacityMet = totalSelectedCapacity >= guestCount;
+    const isJoinedRequired = selectedTimeSlot?.isJoinedTable || false;
 
     const steps: Step[] = ['date', 'time', 'table', 'details', 'confirm'];
 
@@ -135,18 +146,28 @@ export default function ReservationFlow() {
             return;
         }
 
-        if (!selectedTable) {
+        if (selectedTables.length === 0) {
             Toast.show({
                 type: 'error',
                 text1: 'Selecciona una mesa',
-                text2: 'Por favor selecciona una mesa antes de pagar.',
+                text2: 'Por favor selecciona al menos una mesa antes de pagar.',
+            });
+            return;
+        }
+
+        if (!isCapacityMet) {
+            Toast.show({
+                type: 'error',
+                text1: 'Capacidad insuficiente',
+                text2: `Has seleccionado capacidad para ${totalSelectedCapacity} personas, pero necesitas para ${guestCount}.`,
             });
             return;
         }
 
         const success = await initiatePayment(depositAmount, {
             restaurantId: id as string,
-            tableId: selectedTable.id,
+            tableId: selectedTables[0].id,
+            tableIds: selectedTables.map(t => t.id),
             date: selectedDate,
             time: selectedTime!,
             guestCount,
@@ -166,7 +187,7 @@ export default function ReservationFlow() {
     const handleConfirm = async () => {
         console.log('[RESERVE DEBUG] handleConfirm called');
         console.log('[RESERVE DEBUG] User:', user?.id);
-        console.log('[RESERVE DEBUG] Selected table:', selectedTable);
+        console.log('[RESERVE DEBUG] Selected tables:', selectedTables);
         console.log('[RESERVE DEBUG] Selected time:', selectedTime);
 
         if (!user) {
@@ -175,12 +196,21 @@ export default function ReservationFlow() {
             return;
         }
 
-        if (!selectedTable || !selectedTime) {
+        if (selectedTables.length === 0 || !selectedTime) {
             console.log('[RESERVE DEBUG] Missing table or time');
             Toast.show({
                 type: 'error',
                 text1: 'Datos incompletos',
-                text2: 'Por favor selecciona una hora y una mesa.',
+                text2: 'Por favor selecciona una hora y al menos una mesa.',
+            });
+            return;
+        }
+
+        if (!isCapacityMet) {
+            Toast.show({
+                type: 'error',
+                text1: 'Capacidad insuficiente',
+                text2: `Debes seleccionar mesas con capacidad total para al menos ${guestCount} personas.`,
             });
             return;
         }
@@ -205,7 +235,7 @@ export default function ReservationFlow() {
             console.log('[RESERVE DEBUG] Creating reservation with data:', {
                 restaurantId: id,
                 userId: user.id,
-                tableId: selectedTable.id,
+                tableIds: selectedTables.map(t => t.id),
                 date: selectedDate,
                 time: selectedTime,
                 guestCount,
@@ -219,7 +249,8 @@ export default function ReservationFlow() {
             const result = await createReservation.mutateAsync({
                 restaurantId: id,
                 userId: user.id,
-                tableId: selectedTable.id,
+                tableId: selectedTables[0].id, // Legacy support
+                tableIds: selectedTables.map(t => t.id),
                 date: selectedDate,
                 time: selectedTime,
                 guestCount,
@@ -243,7 +274,7 @@ export default function ReservationFlow() {
                 date: selectedDate,
                 time: selectedTime,
                 guests: guestCount.toString(),
-                table: selectedTable.number.toString(),
+                table: selectedTables.map(t => t.number).join(', '),
                 restaurantName: restaurant?.name || 'Restaurante',
                 qrCode: result?.qrCode || result?.qr_code || '',
                 reservationId: result?.id || '',
@@ -273,11 +304,30 @@ export default function ReservationFlow() {
         switch (currentStep) {
             case 'date': return !!selectedDate;
             case 'time': return !!selectedTime;
-            case 'table': return !!selectedTable;
-            case 'details': return true; // Opcional
+            case 'table': return selectedTables.length > 0 && isCapacityMet;
+            case 'details': return true;
             case 'confirm': return !requiresDeposit || depositPaid;
             default: return false;
         }
+    };
+
+    const handleTableSelect = (table: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        setSelectedTables(prev => {
+            const isAlreadySelected = prev.find(t => t.id === table.id);
+            if (isAlreadySelected) {
+                // Remove from selection
+                return prev.filter(t => t.id !== table.id);
+            } else {
+                // If not joined table, usually we just want one. 
+                // But for "Joined Tables" slots, we allow multiple.
+                if (!isJoinedRequired) {
+                    return [table];
+                }
+                return [...prev, table];
+            }
+        });
     };
 
     return (
@@ -405,8 +455,8 @@ export default function ReservationFlow() {
                         ) : (
                             <TableMap
                                 tables={availableTables || []}
-                                selectedTableId={selectedTable?.id}
-                                onTableSelect={setSelectedTable}
+                                selectedTableIds={selectedTables.map(t => t.id)}
+                                onTableSelect={handleTableSelect}
                             />
                         )}
                     </Animated.View>
@@ -465,6 +515,18 @@ export default function ReservationFlow() {
                             <Text className="text-green-700/70">Revisa los detalles y confirma tu mesa.</Text>
                         </View>
 
+                        <View className="flex-row items-center">
+                            <View className="w-10 h-10 rounded-full bg-slate-50 items-center justify-center mr-3">
+                                <Users size={18} color="#64748b" />
+                            </View>
+                            <View>
+                                <Text className="text-slate-400 text-xs uppercase font-bold tracking-wider">Mesa Seleccionada</Text>
+                                <Text className="text-slate-900 font-bold">
+                                    {selectedTables.length > 0 ? `Mesa(s) ${selectedTables.map(t => t.number).join(', ')}` : 'No seleccionada'}
+                                </Text>
+                            </View>
+                        </View>
+
                         <View className="bg-slate-50 p-6 rounded-3xl">
                             <Text className="text-slate-900 font-bold text-lg mb-6">Resumen</Text>
                             <View className="space-y-4">
@@ -486,7 +548,9 @@ export default function ReservationFlow() {
                                 </View>
                                 <View className="flex-row justify-between">
                                     <Text className="text-slate-500">Mesa</Text>
-                                    <Text className="text-slate-900 font-bold">Mesa {selectedTable?.number}</Text>
+                                    <Text className="text-slate-900 font-bold">
+                                        {selectedTables.length > 0 ? `Mesa(s) ${selectedTables.map(t => t.number).join(', ')}` : 'No seleccionada'}
+                                    </Text>
                                 </View>
                                 {selectedOccasion && (
                                     <View className="flex-row justify-between">

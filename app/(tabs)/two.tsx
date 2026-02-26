@@ -1,34 +1,33 @@
-import { useRouter, useFocusEffect } from 'expo-router';
-import React, { useState, useCallback } from 'react';
-import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  StatusBar,
-  Alert
-} from 'react-native';
-import { useAuth } from '../../src/context/AuthContext';
-import { useMyReservations, useCancelReservation } from '../../src/hooks/useData';
-import {
+  AlertCircle,
   Calendar,
   Clock,
-  Users,
-  MapPin,
-  ChevronRight,
-  Ticket,
-  Search,
   History,
-  X,
-  AlertCircle,
-  MessageSquare
+  MapPin,
+  MessageSquare,
+  Search,
+  Ticket,
+  Users,
+  X
 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import Toast from 'react-native-toast-message';
+import { useAuth } from '../../src/context/AuthContext';
+import { useCancelReservation, useMyReservations } from '../../src/hooks/useData';
 
 // Helper para formatear fecha de forma legible
 const formatDate = (dateString: string): string => {
@@ -103,9 +102,28 @@ export default function ReservationsScreen() {
   const handleCancelReservation = (reservation: any) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    const reasons = [
+      'Cambio de planes',
+      'Encontré otro lugar',
+      'Emergencia personal',
+      'Error en la reservación',
+      'Otro motivo'
+    ];
+
     Alert.alert(
-      'Cancelar Reserva',
-      `¿Estás seguro de que quieres cancelar tu reserva en ${reservation.restaurants?.name || 'el restaurante'} para el ${formatDate(reservation.date)} a las ${reservation.time}?`,
+      '¿Por qué cancelas?',
+      'Dinos el motivo para ayudar al restaurante a mejorar:',
+      reasons.map(reason => ({
+        text: reason,
+        onPress: () => confirmCancellation(reservation, reason)
+      })).concat([{ text: 'Regresar', style: 'cancel' } as any])
+    );
+  };
+
+  const confirmCancellation = (reservation: any, reason: string) => {
+    Alert.alert(
+      'Confirmar Cancelación',
+      `¿Seguro que quieres cancelar en ${reservation.restaurants?.name || 'el restaurante'}?`,
       [
         { text: 'No, mantener', style: 'cancel' },
         {
@@ -116,7 +134,7 @@ export default function ReservationsScreen() {
             try {
               await cancelReservation.mutateAsync({
                 reservationId: reservation.id,
-                reason: 'Cancelado por el usuario desde la app móvil'
+                reason: reason
               });
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

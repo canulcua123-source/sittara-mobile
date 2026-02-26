@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RestaurantService, ReservationService } from '../services/restaurantService';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ReservationService, RestaurantService } from '../services/restaurantService';
 import reviewService from '../services/reviewService';
 
 export const useRestaurants = () => {
@@ -64,7 +64,7 @@ export const useMyReservations = () => {
     return useQuery({
         queryKey: ['my-reservations'],
         queryFn: ReservationService.getMyReservations,
-        // refetchInterval: 1000, // Refresco cada 1 segundo para debug en tiempo real
+        refetchInterval: 15000, // Refresco cada 15 segundos para sincronización de background
     });
 };
 

@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions, Share, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Check, Calendar, Clock, Users, Share2, Hash, ArrowLeft, MapPin, Phone, AlertCircle, Star } from 'lucide-react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { AlertCircle, ArrowLeft, Calendar, Clock, Hash, MapPin, Phone, Share2, Star, Users } from 'lucide-react-native';
+import React, { useCallback, useMemo } from 'react';
+import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { useMyReservations } from '../../../src/hooks/useData';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMyReservations } from '../../../src/hooks/useData';
 
 const { width } = Dimensions.get('window');
 
@@ -80,7 +80,14 @@ const getStatusConfig = (status: string) => {
 export default function ReservationDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
-    const { data: reservations, isLoading } = useMyReservations();
+    const { data: reservations, isLoading, refetch, isRefetching } = useMyReservations();
+
+    // Auto-refetch al enfocar la pantalla para asegurar estados actualizados
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [])
+    );
 
     // Buscar la reserva específica en el cache local
     const reservation = useMemo(() => {
@@ -110,7 +117,7 @@ export default function ReservationDetailScreen() {
         }
     };
 
-    if (isLoading) {
+    if (isLoading && !isRefetching) {
         return (
             <View className="flex-1 bg-white items-center justify-center">
                 <ActivityIndicator size="large" color="#1f7a66" />
@@ -119,7 +126,7 @@ export default function ReservationDetailScreen() {
         );
     }
 
-    if (!reservation) {
+    if (!reservation && !isLoading) {
         return (
             <SafeAreaView className="flex-1 bg-white items-center justify-center px-10">
                 <AlertCircle size={48} color="#ef4444" />
@@ -135,7 +142,13 @@ export default function ReservationDetailScreen() {
         <View className="flex-1 bg-white">
             <Stack.Screen options={{ headerShown: false }} />
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#1f7a66" />
+                }
+            >
                 {/* Header Superior */}
                 <View className="bg-slate-900 pt-14 pb-12 px-6 rounded-b-[40px]">
                     <TouchableOpacity

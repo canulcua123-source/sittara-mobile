@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.anonymous.sittaramobile"
     },
     "android": {
+      "googleServicesFile": "./src/services/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -43,6 +44,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "13da7c04-e0f2-4f15-9c29-8ea7ce565f04"
+      }
     }
   }
 }

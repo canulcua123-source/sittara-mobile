@@ -29,6 +29,7 @@ import reviewService from '../../../src/services/reviewService';
 
 const MenuHighlights = ({ restaurantId }: { restaurantId: string }) => {
     const { data: items, isLoading } = useMenuHighlights(restaurantId);
+    const menuRouter = useRouter();
 
     if (isLoading || !items || items.length === 0) return null;
 
@@ -36,7 +37,7 @@ const MenuHighlights = ({ restaurantId }: { restaurantId: string }) => {
         <View className="mb-8">
             <View className="flex-row justify-between items-center mb-4">
                 <Text className="text-lg font-bold text-slate-900">Menú Sugerido</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => menuRouter.push(`/restaurant/${restaurantId}/menu`)}>
                     <Text className="text-orange-600 font-semibold">Ver todo</Text>
                 </TouchableOpacity>
             </View>
@@ -286,6 +287,17 @@ export default function RestaurantDetailScreen() {
                                     <Text className="text-slate-600 text-sm italic border-l-2 border-orange-100 pl-3 py-1">
                                         "{review.comment}"
                                     </Text>
+                                    {/* Restaurant owner's response */}
+                                    {review.response && (
+                                        <View className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100">
+                                            <Text className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1">
+                                                Respuesta del restaurante
+                                            </Text>
+                                            <Text className="text-slate-600 text-xs italic">
+                                                "{review.response}"
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
                             ))
                         ) : (

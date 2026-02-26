@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
-import { User, ApiResponse } from '../types';
 import { registerForPushNotificationsAsync } from '../services/notificationService';
+import { ApiResponse, User } from '../types';
 
 interface AuthContextType {
     user: User | null;
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return { success: false, error: response.data.error || 'Credenciales inválidas' };
         } catch (error: any) {
-            console.error('Login error:', error);
+            console.error('Login error:', error.response?.data || error.message);
             const message = error.response?.data?.error || 'Error de conexión con el servidor';
             return { success: false, error: message };
         } finally {
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return { success: false, error: response.data.error || 'Error al crear la cuenta' };
         } catch (error: any) {
-            console.error('Register error:', error);
+            console.error('Register error:', error.response?.data || error.message);
             const message = error.response?.data?.error || 'Error de conexión con el servidor';
             return { success: false, error: message };
         } finally {
@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             return { success: false, error: response.data.error || 'No se pudo eliminar la cuenta' };
         } catch (error: any) {
-            console.error('Delete account error:', error);
+            console.error('Delete account error:', error.response?.data || error.message);
             return { success: false, error: error.response?.data?.error || 'Error al eliminar cuenta' };
         }
     };
@@ -144,8 +144,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setUser(remoteUser);
                 await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(remoteUser));
             }
-        } catch (error) {
-            console.error('Error refreshing user from server:', error);
+        } catch (error: any) {
+            console.error('Error refreshing user from server:', error.response?.data || error.message);
             // Fallback to local storage if server fails
             const storedUser = await SecureStore.getItemAsync(USER_STORAGE_KEY);
             if (storedUser) {

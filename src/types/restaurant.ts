@@ -14,6 +14,11 @@ export interface Restaurant {
   address: string;
   hasOffers: boolean;
   offerText?: string;
+  // Backend compatibility fields
+  image_url?: string;
+  open_time?: string;
+  close_time?: string;
+  opening_hours?: Record<string, { open: string; close: string; closed?: boolean }>;
 }
 
 export interface Mesa {

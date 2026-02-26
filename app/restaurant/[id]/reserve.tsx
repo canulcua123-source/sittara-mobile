@@ -84,7 +84,7 @@ export default function ReservationFlow() {
     // Encontrar el time slot seleccionado para ver si requiere depósito
     const selectedTimeSlot = useMemo(() => {
         if (!timeSlots || !selectedTime) return null;
-        // El backend devuelve strings, no objetos
+        // Backend now returns objects with { time, available, requiresDeposit, depositAmount }
         const slot = timeSlots.find((s: any) => {
             const time = typeof s === 'string' ? s : s.time;
             return time === selectedTime;
@@ -92,7 +92,8 @@ export default function ReservationFlow() {
         return typeof slot === 'string' ? { time: slot, requiresDeposit: false, depositAmount: 0 } : slot;
     }, [timeSlots, selectedTime]);
 
-    const requiresDeposit = selectedTimeSlot?.requiresDeposit || restaurant?.settings?.depositRequired || false;
+    // Deposit is determined per-slot by the backend (based on settings.depositRequired + depositHours + depositDays)
+    const requiresDeposit = selectedTimeSlot?.requiresDeposit || false;
     const depositAmount = selectedTimeSlot?.depositAmount || restaurant?.settings?.depositAmount || 150;
 
     const steps: Step[] = ['date', 'time', 'table', 'details', 'confirm'];

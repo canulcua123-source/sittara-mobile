@@ -14,7 +14,16 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '../src/context/AuthContext';
 import { FavoritesProvider } from '../src/context/FavoritesContext';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,       // 2 minutes — ensures schedule/hour changes propagate quickly
+      refetchOnWindowFocus: true,       // Refetch when the app comes to the foreground
+      refetchOnReconnect: true,         // Refetch after network reconnection
+      retry: 2,
+    },
+  },
+});
 
 // Stripe Publishable Key (from environment or default to test key)
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
@@ -119,6 +128,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="auth/index" options={{ title: 'Iniciar Sesión' }} />
         <Stack.Screen name="restaurant/[id]/index" />
+        <Stack.Screen name="restaurant/[id]/menu" options={{ presentation: 'modal' }} />
         <Stack.Screen name="restaurant/[id]/reserve" options={{ presentation: 'modal' }} />
         <Stack.Screen name="restaurant/[id]/success" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="admin/index" />

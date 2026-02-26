@@ -1,7 +1,6 @@
-import { Platform } from 'react-native';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import api from './api';
 
 // Configurar comportamiento global de notificaciones (cómo se ven cuando la app está abierta)
@@ -27,39 +26,34 @@ export async function registerForPushNotificationsAsync() {
         });
     }
 
-    if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
 
-        if (finalStatus !== 'granted') {
-            console.log('Permisos de notificación denegados');
-            return;
-        }
+    if (finalStatus !== 'granted') {
+        console.log('Permisos de notificación denegados');
+        return;
+    }
 
-        try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    try {
+        const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId ?? "13da7c04-e0f2-4f15-9c29-8ea7ce565f04";
 
-            const pushTokenString = (await Notifications.getExpoPushTokenAsync({
-                projectId,
-            })).data;
+        const pushTokenString = (await Notifications.getExpoPushTokenAsync({
+            projectId,
+        })).data;
 
-            console.log('Expo Push Token:', pushTokenString);
-            token = pushTokenString;
+        console.log('Expo Push Token exitoso:', pushTokenString);
+        token = pushTokenString;
 
-            // Enviar token al backend si el usuario está logueado
-            // Esto se puede llamar también desde AuthContext después del login
-            await sendTokenToBackend(token);
+        // Enviar token al backend 
+        await sendTokenToBackend(token);
 
-        } catch (e) {
-            console.error('Error obteniendo push token', e);
-        }
-    } else {
-        console.log('Debes usar un dispositivo físico para Push Notifications');
+    } catch (e) {
+        console.error('Error obteniendo push token', e);
     }
 
     return token;

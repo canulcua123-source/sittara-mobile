@@ -1,47 +1,43 @@
-import React, { useState, useMemo } from 'react';
-import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    SafeAreaView,
-    ActivityIndicator,
-    Dimensions,
-    TextInput,
-    Alert
-} from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     ArrowLeft,
-    Calendar as CalendarIcon,
-    Users,
-    MessageSquare,
-    Zap,
-    ChevronRight,
+    Briefcase,
     CalendarDays,
     CheckCircle2,
+    ChevronRight,
     CreditCard,
-    AlertTriangle,
+    Gift,
     Heart,
-    PartyPopper,
-    Briefcase,
-    Gift
+    PartyPopper
 } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import Animated, {
     FadeInRight,
     FadeOutLeft,
 } from 'react-native-reanimated';
-import { useAuth } from '../../../src/context/AuthContext';
-import {
-    useRestaurantDetails,
-    useTimeSlots,
-    useAvailableTables,
-    useCreateReservation
-} from '../../../src/hooks/useData';
+import Toast from 'react-native-toast-message';
 import { TableMap } from '../../../components/TableMap';
 import { TimeSlotPicker } from '../../../components/TimeSlotPicker';
-import Toast from 'react-native-toast-message';
-import * as Haptics from 'expo-haptics';
+import { useAuth } from '../../../src/context/AuthContext';
+import {
+    useAvailableTables,
+    useCreateReservation,
+    useRestaurantDetails,
+    useTimeSlots
+} from '../../../src/hooks/useData';
 import usePayment from '../../../src/hooks/usePayment';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -71,6 +67,23 @@ export default function ReservationFlow() {
     const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
     const [specialRequest, setSpecialRequest] = useState('');
     const [depositPaid, setDepositPaid] = useState(false);
+    const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+
+    // Generar fechas para los próximos 30 días
+    const availableDates = useMemo(() => {
+        const dates = [];
+        for (let i = 0; i < 30; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            dates.push({
+                full: date.toISOString().split('T')[0],
+                day: date.getDate(),
+                month: date.toLocaleDateString('es-MX', { month: 'short' }),
+                weekday: date.toLocaleDateString('es-MX', { weekday: 'short' }),
+            });
+        }
+        return dates;
+    }, []);
 
     const { data: timeSlots, isLoading: loadingSlots } = useTimeSlots(id as string, selectedDate, guestCount);
     const { data: availableTables, isLoading: loadingTables } = useAvailableTables(
@@ -333,7 +346,10 @@ export default function ReservationFlow() {
                             </ScrollView>
                         </View>
 
-                        <TouchableOpacity className="flex-row items-center justify-center p-4 border border-slate-100 rounded-2xl">
+                        <TouchableOpacity
+                            onPress={() => setIsCalendarVisible(true)}
+                            className="flex-row items-center justify-center p-4 border border-slate-100 rounded-2xl"
+                        >
                             <CalendarDays size={20} color="#1f7a66" />
                             <Text className="ml-2 text-slate-600 font-semibold">Ver calendario completo</Text>
                         </TouchableOpacity>
@@ -553,6 +569,60 @@ export default function ReservationFlow() {
                     )}
                 </TouchableOpacity>
             </View>
+
+            {/* Calendar Modal */}
+            <Modal
+                visible={isCalendarVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setIsCalendarVisible(false)}
+            >
+                <View className="flex-1 justify-end bg-black/50">
+                    <View className="bg-white rounded-t-[40px] px-6 pt-8 pb-12 max-h-[80%]">
+                        <View className="flex-row justify-between items-center mb-6">
+                            <Text className="text-2xl font-bold text-slate-900">Selecciona una fecha</Text>
+                            <TouchableOpacity
+                                onPress={() => setIsCalendarVisible(false)}
+                                className="w-10 h-10 rounded-full bg-slate-50 items-center justify-center"
+                            >
+                                <Text className="text-slate-400 font-bold">✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <View className="flex-row flex-wrap gap-4">
+                                {availableDates.map((item) => {
+                                    const isSelected = selectedDate === item.full;
+                                    return (
+                                        <TouchableOpacity
+                                            key={item.full}
+                                            onPress={() => {
+                                                setSelectedDate(item.full);
+                                                setIsCalendarVisible(false);
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                            className={`w-[22%] py-4 rounded-2xl items-center justify-center border ${isSelected
+                                                ? 'bg-orange-600 border-orange-600'
+                                                : 'bg-white border-slate-100'
+                                                }`}
+                                        >
+                                            <Text className={`text-[10px] uppercase font-bold ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                                                {item.weekday}
+                                            </Text>
+                                            <Text className={`text-xl font-bold my-1 ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                                {item.day}
+                                            </Text>
+                                            <Text className={`text-[10px] font-bold ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                                {item.month}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }

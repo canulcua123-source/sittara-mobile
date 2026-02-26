@@ -1,5 +1,5 @@
+import { ApiResponse, Offer, Restaurant, TimeSlot } from '../types';
 import api from './api';
-import { Restaurant, ApiResponse, Offer, TimeSlot, Table } from '../types';
 
 export const RestaurantService = {
     getRestaurants: async () => {
@@ -19,7 +19,9 @@ export const RestaurantService = {
 
     getTimeSlots: async (restaurantId: string, date: string, guests: number = 2) => {
         // El backend requiere 'guests' además de 'date'
+        console.log(`[RESTAURANT SERVICE] Fetching timeslots for date ${date}, guests ${guests}`);
         const response = await api.get<ApiResponse<TimeSlot[]>>(`/restaurants/${restaurantId}/timeslots?date=${date}&guests=${guests}`);
+        console.log(`[RESTAURANT SERVICE] Received ${response.data.data?.length || 0} timeslots`);
         return response.data.data;
     },
 

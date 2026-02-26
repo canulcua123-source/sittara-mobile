@@ -1,60 +1,72 @@
-import React from 'react';
-import {
-    View,
-    Text,
-    Image,
-    ScrollView,
-    TouchableOpacity,
-    SafeAreaView,
-    StatusBar,
-    ActivityIndicator,
-    Share
-} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
     ArrowLeft,
-    Star,
-    MapPin,
-    Phone,
-    Clock,
-    Heart,
-    Share2,
     Calendar,
     ChevronRight,
-    Info,
+    Clock,
+    Heart,
+    MapPin,
+    Share2,
+    Star,
     Utensils
 } from 'lucide-react-native';
-import { useRestaurantDetails, useRestaurantReviews, useReviewStats, useMenuHighlights } from '../../../src/hooks/useData';
-import reviewService from '../../../src/services/reviewService';
+import React from 'react';
+import {
+    ActivityIndicator,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    Share,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { useMenuHighlights, useRestaurantDetails, useRestaurantReviews, useReviewStats } from '../../../src/hooks/useData';
 
-const MenuHighlights = ({ restaurantId }: { restaurantId: string }) => {
+const MenuSection = ({ restaurantId }: { restaurantId: string }) => {
     const { data: items, isLoading } = useMenuHighlights(restaurantId);
     const menuRouter = useRouter();
 
-    if (isLoading || !items || items.length === 0) return null;
+    if (isLoading) return null;
 
     return (
         <View className="mb-8">
             <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-lg font-bold text-slate-900">Menú Sugerido</Text>
-                <TouchableOpacity onPress={() => menuRouter.push(`/restaurant/${restaurantId}/menu`)}>
-                    <Text className="text-orange-600 font-semibold">Ver todo</Text>
+                <Text className="text-xl font-bold text-slate-900">Menú</Text>
+                <TouchableOpacity
+                    onPress={() => menuRouter.push(`/restaurant/${restaurantId}/menu`)}
+                    className="flex-row items-center bg-orange-50 px-3 py-1.5 rounded-xl"
+                >
+                    <Text className="text-orange-600 font-bold text-sm mr-1">Ver todo</Text>
+                    <ChevronRight size={14} color="#ea580c" />
                 </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6">
-                {items.map((item: any) => (
-                    <View key={item.id} className="mr-4 w-40 bg-slate-50 rounded-3xl overflow-hidden border border-slate-100">
-                        <Image
-                            source={{ uri: item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200' }}
-                            className="w-full h-28"
-                        />
-                        <View className="p-3">
-                            <Text className="text-slate-900 font-bold text-xs" numberOfLines={1}>{item.name}</Text>
-                            <Text className="text-orange-600 font-bold text-xs mt-1">${item.price}</Text>
+
+            {items && items.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-6 px-6">
+                    {items.map((item: any) => (
+                        <View key={item.id} className="mr-4 w-40 bg-slate-50 rounded-3xl overflow-hidden border border-slate-100">
+                            <Image
+                                source={{ uri: item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200' }}
+                                className="w-full h-28"
+                            />
+                            <View className="p-3">
+                                <Text className="text-slate-900 font-bold text-xs" numberOfLines={1}>{item.name}</Text>
+                                <Text className="text-orange-600 font-bold text-xs mt-1">${item.price}</Text>
+                            </View>
                         </View>
-                    </View>
-                ))}
-            </ScrollView>
+                    ))}
+                </ScrollView>
+            ) : (
+                <TouchableOpacity
+                    onPress={() => menuRouter.push(`/restaurant/${restaurantId}/menu`)}
+                    className="bg-white border border-dashed border-slate-200 p-6 rounded-3xl items-center"
+                >
+                    <Utensils size={24} color="#94a3b8" />
+                    <Text className="text-slate-400 mt-2 font-medium">Consulta nuestro menú completo</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 };
@@ -248,7 +260,7 @@ export default function RestaurantDetailScreen() {
                     </View>
 
                     {/* Menu Section */}
-                    <MenuHighlights restaurantId={restaurant.id} />
+                    <MenuSection restaurantId={restaurant.id} />
 
                     {/* Reviews */}
                     <View className="mb-6">

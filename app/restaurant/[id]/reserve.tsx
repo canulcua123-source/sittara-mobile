@@ -370,6 +370,8 @@ export default function ReservationFlow() {
                                 timeSlots={timeSlots || []}
                                 selectedTime={selectedTime}
                                 onSelectTime={setSelectedTime}
+                                guestCount={guestCount}
+                                restaurantPhone={restaurant?.phone}
                             />
                         )}
 

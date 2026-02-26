@@ -107,6 +107,7 @@ export interface TimeSlot {
     time: string;
     available: boolean;
     isPeak: boolean;
+    isJoinedTable?: boolean;
     requiresDeposit: boolean;
     depositAmount?: number;
 }
